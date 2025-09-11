@@ -22,10 +22,11 @@ from collections import OrderedDict
 from typing import Any, Dict, List, Set
 
 import torch
+import wandb
 
 import detectron2.utils.comm as comm
 from detectron2.checkpoint import DetectionCheckpointer
-from detectron2.config import get_cfg
+from detectron2.config import get_cfg, instantiate
 from detectron2.data import MetadataCatalog, build_detection_train_loader, build_detection_test_loader
 from detectron2.data.dataset_mapper import DatasetMapper
 import detectron2.data.transforms as T
@@ -68,6 +69,16 @@ from detectron2.engine import (
 import weakref
 
 
+run = wandb.init(
+    entity="universiteitleiden",
+    project="master-thesis-dragonfly",
+    tags=["Mask-DINO", "annotated-images", "4-part-annotated" ],
+    config={
+        "architecture": "Mask-DINO",
+    },
+    sync_tensorboard=True
+)
+
 class Trainer(DefaultTrainer):
     """
     Extension of the Trainer class adapted to MaskFormer.
@@ -80,7 +91,10 @@ class Trainer(DefaultTrainer):
         cfg = DefaultTrainer.auto_scale_workers(cfg, comm.get_world_size())
 
         # Assume these objects must be constructed in this order.
+        # model = self.build_model(cfg)
         model = self.build_model(cfg)
+        checkpointer = DetectionCheckpointer(model)
+        checkpointer.load("/home/mrajaraman/Code/model_checkpoints/model_final_maskdino.pth")  
         optimizer = self.build_optimizer(cfg, model)
         data_loader = self.build_train_loader(cfg)
 
@@ -161,7 +175,7 @@ class Trainer(DefaultTrainer):
         if evaluator_type == "mapillary_vistas_panoptic_seg" and cfg.MODEL.MaskDINO.TEST.SEMANTIC_ON:
             evaluator_list.append(SemSegEvaluator(dataset_name, distributed=True, output_dir=output_folder))
         # Cityscapes
-        if evaluator_type == "cityscapes_instance":
+        if evaluator_type == "cmax_iterityscapes_instance":
             assert (
                 torch.cuda.device_count() > comm.get_rank()
             ), "CityscapesEvaluator currently do not work with multiple machines."
@@ -179,7 +193,7 @@ class Trainer(DefaultTrainer):
                 evaluator_list.append(CityscapesSemSegEvaluator(dataset_name))
             if cfg.MODEL.MaskDINO.TEST.INSTANCE_ON:
                 assert (
-                    torch.cuda.device_count() > comm.get_rank()
+                    torch.cuda.max_iterdevice_count() > comm.get_rank()
                 ), "CityscapesEvaluator currently do not work with multiple machines."
                 evaluator_list.append(CityscapesInstanceEvaluator(dataset_name))
         # ADE20K
@@ -223,7 +237,7 @@ class Trainer(DefaultTrainer):
 
     @classmethod
     def build_lr_scheduler(cls, cfg, optimizer):
-        """
+        """ep
         It now calls :func:`detectron2.solver.build_lr_scheduler`.
         Overwrite it if you'd like a different scheduler.
         """
@@ -333,34 +347,34 @@ def register_custom_coco_dataset(args) -> None:
    exp_id = args.exp_id
    annotations_path = os.path.join(dataset_path, "annotations/")
    register_coco_instances(
-       f"lifeplan_{exp_id}_train",
+       f"dragonfly_{exp_id}_train",
        {},
-       os.path.join(annotations_path, "instances_train2017.json"),
-       os.path.join(dataset_path, "train2017"),
+       os.path.join(annotations_path, "instances_train.json"),
+       os.path.join(dataset_path, "train"),
    )
    if args.eval_only:
     register_coco_instances(
-        f"lifeplan_{exp_id}_test",
+        f"dragonfly_{exp_id}_test",
         {},
-       os.path.join(annotations_path, "instances_test2017.json"),
-       os.path.join(dataset_path, "test2017"), ## NOTE: we generally do not want to test on the tiled test set
+       os.path.join(annotations_path, "instances_test.json"),
+       os.path.join(dataset_path, "test"), ## NOTE: we generally do not want to test on the tiled test set
     )
    else: 
     register_coco_instances(
-        f"lifeplan_{exp_id}_valid",
+        f"dragonfly_{exp_id}_valid",
         {},
-        os.path.join(annotations_path, "instances_val2017.json"),
-        os.path.join(dataset_path, "val2017"),
+        os.path.join(annotations_path, "instances_val.json"),
+        os.path.join(dataset_path, "val"),
     )
-
+    
 def setup(args):
     """
     Create configs and perform basic setups.
     """
     register_custom_coco_dataset(args)
     cfg = get_cfg()
-    cfg.DATASETS.TRAIN = (f"lifeplan_{args.exp_id}_train",)
-    cfg.DATASETS.TEST = (f"lifeplan_{args.exp_id}_valid",)
+    cfg.DATASETS.TRAIN = (f"dragonfly_{args.exp_id}_train",)
+    cfg.DATASETS.TEST = (f"dragonfly_{args.exp_id}_valid",)
     # for poly lr schedule
     add_deeplab_config(cfg)
     add_maskdino_config(cfg)
