@@ -175,7 +175,7 @@ class Trainer(DefaultTrainer):
         if evaluator_type == "mapillary_vistas_panoptic_seg" and cfg.MODEL.MaskDINO.TEST.SEMANTIC_ON:
             evaluator_list.append(SemSegEvaluator(dataset_name, distributed=True, output_dir=output_folder))
         # Cityscapes
-        if evaluator_type == "cmax_iterityscapes_instance":
+        if evaluator_type == "cityscapes_instance":
             assert (
                 torch.cuda.device_count() > comm.get_rank()
             ), "CityscapesEvaluator currently do not work with multiple machines."
@@ -193,7 +193,7 @@ class Trainer(DefaultTrainer):
                 evaluator_list.append(CityscapesSemSegEvaluator(dataset_name))
             if cfg.MODEL.MaskDINO.TEST.INSTANCE_ON:
                 assert (
-                    torch.cuda.max_iterdevice_count() > comm.get_rank()
+                    torch.cuda.device_count() > comm.get_rank()
                 ), "CityscapesEvaluator currently do not work with multiple machines."
                 evaluator_list.append(CityscapesInstanceEvaluator(dataset_name))
         # ADE20K
@@ -214,6 +214,8 @@ class Trainer(DefaultTrainer):
 
     @classmethod
     def build_train_loader(cls, cfg):
+        print("Using custom train loader")
+        print("Using dataset mapper: ", cfg.INPUT.DATASET_MAPPER_NAME)
         # coco instance segmentation lsj new baseline
         if cfg.INPUT.DATASET_MAPPER_NAME == "coco_instance_lsj":
             mapper = COCOInstanceNewBaselineDatasetMapper(cfg, True)
@@ -364,7 +366,7 @@ def register_custom_coco_dataset(args) -> None:
         f"dragonfly_{exp_id}_valid",
         {},
         os.path.join(annotations_path, "instances_val.json"),
-        os.path.join(dataset_path, "val"),
+        os.path.join(dataset_path, "valid"),
     )
     
 def setup(args):
@@ -415,13 +417,13 @@ def main(args):
 
 if __name__ == "__main__":
     parser = default_argument_parser()
-    parser.add_argument('--eval_only', action='store_true')
+#    parser.add_argument('--eval_only', action='store_true')
     parser.add_argument('--EVAL_FLAG', type=int, default=1)
-    # parser.add_argument('--continue_training', action='store_true')
+    parser.add_argument('--continue_training', action='store_true')
     parser.add_argument(
         '--dataset_path', 
         type=str, 
-        default="/h/jquinto/MaskDINO/datasets/lifeplan/",
+        default="/home/mrajaraman/dataset/coco-roboflow/",
         help="Path to the dataset directory containing annotations and images"
     )
     parser.add_argument(

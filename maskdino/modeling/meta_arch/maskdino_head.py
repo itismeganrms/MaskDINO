@@ -52,6 +52,9 @@ class MaskDINOHead(nn.Module):
 
         self.num_classes = num_classes
 
+        # print("Input features to MaskDINOHead: ", self.in_features)
+        # print("Number of classes: ", self.num_classes)
+
     @classmethod
     def from_config(cls, cfg, input_shape: Dict[str, ShapeSpec]):
         transformer_predictor_in_channels = cfg.MODEL.SEM_SEG_HEAD.CONVS_DIM
@@ -72,11 +75,11 @@ class MaskDINOHead(nn.Module):
         }
 
     def forward(self, features, mask=None,targets=None):
+        # print("Inside MaskDINOHead forward")
+        # print("Targets are: ", targets)
         return self.layers(features, mask,targets=targets)
 
     def layers(self, features, mask=None,targets=None):
         mask_features, transformer_encoder_features, multi_scale_features = self.pixel_decoder.forward_features(features, mask)
-
         predictions = self.predictor(multi_scale_features, mask_features, mask, targets=targets)
-
         return predictions

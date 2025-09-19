@@ -115,10 +115,13 @@ class MaskDINODecoder(nn.Module):
         self.semantic_ce_loss = semantic_ce_loss
         # learnable query features
         if not two_stage or self.learn_tgt:
+            # print("Num Query: {}, Learnable Query: {}".format(num_queries, self.learn_tgt))
             self.query_feat = nn.Embedding(num_queries, hidden_dim)
         if not two_stage and initialize_box_type == 'no':
+            # print("Num Query: {}")
             self.query_embed = nn.Embedding(num_queries, 4)
         if two_stage:
+            # print("Two stage with {} queries".format(num_queries))
             self.enc_output = nn.Linear(hidden_dim, hidden_dim)
             self.enc_output_norm = nn.LayerNorm(hidden_dim)
 
@@ -137,6 +140,8 @@ class MaskDINODecoder(nn.Module):
                 self.class_embed = nn.Linear(hidden_dim, num_classes+1)
             else:
                 self.class_embed = nn.Linear(hidden_dim, num_classes)
+        # print("Number of classes for classification:", num_classes)
+        # print("hidden dim:", hidden_dim)
         self.label_enc=nn.Embedding(num_classes,hidden_dim)
         self.mask_embed = MLP(hidden_dim, hidden_dim, mask_dim, 3)
 

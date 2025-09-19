@@ -258,11 +258,21 @@ class MaskDINO(nn.Module):
                 gt_instances = [x["instances"].to(self.device) for x in batched_inputs]
                 if 'detr' in self.data_loader:
                     targets = self.prepare_targets_detr(gt_instances, images)
+                    for t in targets:
+                        if "labels" in t:
+                            t["labels"] = t["labels"] - 1
                 else:
                     targets = self.prepare_targets(gt_instances, images)
+                    for t in targets:
+                        if "labels" in t:
+                            t["labels"] = t["labels"] - 1
             else:
                 targets = None
+            # print('Training with {} targets'.format(len(targets)))
+            # print('Features: ', features.keys())
+            # targets["labels"] = targets["labels"] - 1
             outputs,mask_dict = self.sem_seg_head(features,targets=targets)
+
             # bipartite matching-based loss
             losses = self.criterion(outputs, targets,mask_dict)
 
