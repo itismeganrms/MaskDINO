@@ -1,21 +1,21 @@
 import logging
 from typing import List, Optional
-
 import numpy as np
 
 from matplotlib.patches import Rectangle
 from PIL import Image
 import matplotlib.pyplot as plt
 
-from sahi.models.base import DetectionModel
-from sahi.prediction import ObjectPrediction
-from sahi.utils.cv import get_bbox_from_bool_mask, get_coco_segmentation_from_bool_mask
-from sahi.utils.import_utils import check_requirements
+from detectron2.utils.visualizer import Visualizer
+
+# from sahi.models.base import DetectionModel
+# from sahi.prediction import ObjectPrediction
+# from sahi.utils.cv import get_bbox_from_bool_mask, get_coco_segmentation_from_bool_mask
+# from sahi.utils.import_utils import check_requirements
+
+import detectron2.data.transforms as T
 
 logger = logging.getLogger(__name__)
-# import sys
-# sys.path.insert(0, "/home/mrajaraman/do-not-modify/MassID45/MaskDINO/MaskDINO-MassID45")
-
 from detectron2.data import MetadataCatalog
 from detectron2.engine.defaults import DefaultPredictor
 from maskdino.modeling import *
@@ -26,16 +26,16 @@ from detectron2.checkpoint import DetectionCheckpointer
 from maskdino import add_maskdino_config
 from detectron2.projects.deeplab import add_deeplab_config
 import cv2
+import torch
+
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 cfg = get_cfg()
 cfg.set_new_allowed(True) 
 add_deeplab_config(cfg)
 add_maskdino_config(cfg)
 cfg.merge_from_file("/home/mrajaraman/master-thesis-dragonfly/external/maskdino-dragonfly/configs/lifeplan/instance-segmentation/maskdino_R50_bs16_50ep_3s_dowsample1_2048.yaml")
-#cfg.MODEL.WEIGHTS = "/home/mrajaraman/do-not-modify/MassID45/MaskDINO/MaskDINO-MassID45/output_lifeplan_b_512_sahi_tiled_v9_R50_1024_one_cycle_lr_5e-5_colour_augs_15k_iters_scratch/model_final.pth"
 
-# set model device
-# cfg.MODEL.DEVICE = "self.device.type"
 cfg.MODEL.DEVICE = "cuda"
 
 # set input image size
@@ -46,9 +46,13 @@ cfg.freeze()
 
 # init predictor
 predictor = DefaultPredictor(cfg)
-DetectionCheckpointer(predictor.model).load("/home/mrajaraman/master-thesis-dragonfly/external/maskdino-dragonfly/output_lifeplan_b_512_sahi_tiled_v9_R50_1024_one_cycle_lr_5e-5_colour_augs_15k_iters/model_final.pth") #, weights_only=False) #, map_location=device)
+# DetectionCheckpointer(predictor.model).load("/home/mrajaraman/master-thesis-dragonfly/external/maskdino-dragonfly/output_lifeplan_b_512_sahi_tiled_v9_R50_1024_one_cycle_lr_5e-5_colour_augs_15k_iters/model_0004884.pth")
+# DetectionCheckpointer(predictor.model).load("/home/mrajaraman/master-thesis-dragonfly/external/maskdino-dragonfly/output_lifeplan_b_512_sahi_tiled_v9_R50_1024_one_cycle_lr_5e-5_colour_augs_15k_iters/model_0009769.pth")
+# DetectionCheckpointer(predictor.model).load("/home/mrajaraman/master-thesis-dragonfly/external/maskdino-dragonfly/output_lifeplan_b_512_sahi_tiled_v9_R50_1024_one_cycle_lr_5e-5_colour_augs_15k_iters/model_0014654.pth")
+DetectionCheckpointer(predictor.model).load("/home/mrajaraman/master-thesis-dragonfly/external/maskdino-dragonfly/output_lifeplan_b_512_sahi_tiled_v9_R50_1024_one_cycle_lr_5e-5_colour_augs_15k_iters/model_final.pth")
+
 print("Model loaded successfully.")
-category_mapping={"1": "b"}
+category_mapping={"0": "head", "1": "torso", "2": "tail", "3": "wings"}
 # detectron2 category mapping
 category_names = list(category_mapping.values())
 image = np.array(
@@ -57,43 +61,34 @@ image = np.array(
         cv2.IMREAD_COLOR
 ))
 
-# if isinstance(image, np.ndarray) and self.model.input_format == "BGR":
-#     # convert RGB image to BGR format
-#     image = image[:, :, ::-1]
+model_name="model_final"
+print("Inference done on {}", model_name)
 
 prediction_result = predictor(image)
-# print(prediction_result)
+# print(prediction_result)# print(prediction_result)
 # original_predictions = prediction_result
 
-img = prediction_result['instances'][0]._fields['pred_masks'].cpu().detach().numpy()
-bbox = []
-print("Number of detected instances is ", len(prediction_result['instances']._fields['pred_boxes'].tensor))
-for i in prediction_result['instances']._fields['pred_boxes'].tensor:
-        print("i is ", i)
-        bbox.append(i.cpu().detach().numpy())
+# PROOF THAT RESIZING WORKS AS EXPECTED DURING INFERENCE
+print(predictor.aug)
+print()
 
-# Display the image
-plt.imshow(Image.open('/home/mrajaraman/dataset/originals/img_1458477504.jpg'))
-
-# Add the patch to the Axes
-for i in range(len(bbox)):
-        # print("length is ", len(bbox))
-        plt.gca().add_patch(Rectangle((bbox[i][0], bbox[i][1]), bbox[i][2]-bbox[i][0], bbox[i][3]-bbox[i][1], linewidth=1, edgecolor='r', facecolor='none'))
-        print(f"Instance {i+1} added to image")
-
-plt.title("Inference Result of MaskDINO on image")
-plt.savefig("trained_inference_maskdino.png")
-
-# # PROOF THAT RESIZING WORKS AS EXPECTED DURING INFERENCE
-# print(predictor.aug)
-# print()
-
-# # Note that our data loader ONLY USES THE cfg.INPUT.IMAGE_SIZE key, MIN_SIZE_TRAIN and MAX_SIZE_TRAIN are ignored 
-# print(predictor.cfg.INPUT.IMAGE_SIZE)
-# print()
+# Note that our data loader ONLY USES THE cfg.INPUT.IMAGE_SIZE key, MIN_SIZE_TRAIN and MAX_SIZE_TRAIN are ignored 
+print(predictor.cfg.INPUT.IMAGE_SIZE)
+print()
 
 # Output sample mask predictions:
 sample_preds = prediction_result['instances'][0]._fields['pred_masks'].cpu().detach().numpy()
-# print(sample_preds)
-# print(sample_preds.shape)
-# print(sample_preds.dtype)
+print(sample_preds)
+print(sample_preds.shape)
+print(sample_preds.dtype)
+
+outputs = prediction_result["instances"]
+
+v = Visualizer(image[:, :, ::-1], metadata=None, scale=1.0)
+out = v.draw_instance_predictions(outputs.to("cpu"))
+plt.imshow(out.get_image())
+plt.axis("off")
+plt.show()
+
+plt.title("Inference Result of MaskDINO on image")
+plt.savefig(f"inference_{model_name}.png")
