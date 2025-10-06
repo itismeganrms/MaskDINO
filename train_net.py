@@ -45,6 +45,7 @@ from detectron2.projects.deeplab import add_deeplab_config, build_lr_scheduler
 from detectron2.solver.build import maybe_add_gradient_clipping
 from detectron2.utils.logger import setup_logger
 
+from detectron2.engine import hooks
 # MaskDINO
 from maskdino import (
     COCOInstanceNewBaselineDatasetMapper,
@@ -341,6 +342,25 @@ class Trainer(DefaultTrainer):
         res = cls.test(cfg, model, evaluators)
         res = OrderedDict({k + "_TTA": v for k, v in res.items()})
         return res
+    
+    def build_hooks(self):
+        hooks_list = super().build_hooks()
+        hooks_list = [h for h in hooks_list if not isinstance(h, hooks.PeriodicCheckpointer)]
+        num_ckpts = 10
+        max_iter = self.cfg.SOLVER.MAX_ITER
+        period_steps = max(1, max_iter // num_ckpts)
+        # self.cfg.train.checkpointer=dict(period=period_steps, max_to_keep=10) 
+        hooks_list.append(
+            hooks.PeriodicCheckpointer(
+                self.checkpointer,
+                period=period_steps,
+                max_to_keep=num_ckpts
+            )
+        )
+        for i, h in enumerate(hooks_list):
+            if isinstance(h, hooks.EvalHook):
+                hooks_list[i] = hooks.EvalHook(1000, h._func)
+        return hooks_list
 
 from detectron2.data.datasets import register_coco_instances
 
@@ -382,6 +402,7 @@ def setup(args):
     add_maskdino_config(cfg)
     cfg.merge_from_file(args.config_file)
     cfg.merge_from_list(args.opts)
+    cfg.SOLVER.MAX_ITER = args.train_iter
     cfg.freeze()
     default_setup(cfg, args)
     setup_logger(output=cfg.OUTPUT_DIR, distributed_rank=comm.get_rank(), name="maskdino")
@@ -420,18 +441,12 @@ if __name__ == "__main__":
 #    parser.add_argument('--eval_only', action='store_true')
     parser.add_argument('--EVAL_FLAG', type=int, default=1)
     parser.add_argument('--continue_training', action='store_true')
-    parser.add_argument(
-        '--dataset_path', 
-        type=str, 
-        default="/home/mrajaraman/dataset/coco-roboflow/",
-        help="Path to the dataset directory containing annotations and images"
-    )
-    parser.add_argument(
-        '--exp_id', 
-        # type=int, 
-        # default=256,
+    parser.add_argument('--dataset_path', type=str, default="/home/mrajaraman/dataset/coco-roboflow/", help="Path to the dataset directory containing annotations and images")
+    parser.add_argument('--train_iter',default=20000, type = int)
+    parser.add_argument('--exp_id', # type=int,# default=256,
         help="Identifier string -- tile size for training model if no SR is applied, or SR method if SR is applied; must be updated in argument cfg.DATASETS.TRAIN as well"
     )
+
     args = parser.parse_args()
     # random port
     port = random.randint(1000, 20000)
