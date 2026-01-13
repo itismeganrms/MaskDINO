@@ -54,22 +54,22 @@ predictor = DefaultPredictor(cfg)
 # DetectionCheckpointer(predictor.model).load("/home/mrajaraman/master-thesis-dragonfly/external/maskdino-dragonfly/output_512_dragonfly_2025-10-02_01-07-38/model_final.pth")
 
 ## OLD INFERENCE SNIPPET
-# dataset_name="dataset_v1_coco"
-# DetectionCheckpointer(predictor.model).load("/home/mrajaraman/master-thesis-dragonfly/external/maskdino-dragonfly/final_runs_for_consideration/output_512_dragonfly_2025-12-07_15-47-56_clean-plant-171/model_final.pth")
-# model_name="model_old_2500"
+dataset_name="dataset_v1_coco"
+DetectionCheckpointer(predictor.model).load("/home/mrajaraman/master-thesis-dragonfly/external/maskdino-dragonfly/final_runs_for_consideration/output_512_dragonfly_2025-12-07_15-47-56_clean-plant-171/model_final.pth")
+model_name="model_old_2500"
 
 # DetectionCheckpointer(predictor.model).load("/home/mrajaraman/master-thesis-dragonfly/external/maskdino-dragonfly/final_runs_for_consideration/output_512_dragonfly_2025-12-07_16-35-15_desert-sun-174/model_final.pth")
 # model_name="model_old_5000"
 
 # DetectionCheckpointer(predictor.model).load("/home/mrajaraman/master-thesis-dragonfly/external/maskdino-dragonfly/final_runs_for_consideration/output_512_dragonfly_2025-12-15_09-55-04_sandy-wave-198/model_final.pth")
 # model_name="model_old_15000"
-# MetadataCatalog.get(dataset_name).thing_classes = ["dragonfly", "head", "abdomen", "thorax", "wings"]
+MetadataCatalog.get(dataset_name).thing_classes = ["dragonfly", "head", "abdomen", "thorax", "wings"]
 
 # ## NEW INFERENCE SNIPPET
-dataset_name="dataset_v2_coco"
-DetectionCheckpointer(predictor.model).load("/home/mrajaraman/master-thesis-dragonfly/external/maskdino-dragonfly/final_runs_for_consideration/output_512_dragonfly_2025-12-15_15-56-59_lunar-morning-201/model_final.pth")
-MetadataCatalog.get(dataset_name).thing_classes = ["objects","head", "abdomen", "thorax", "wings"]
-model_name="model_final_new_trained"
+# dataset_name="dataset_v2_coco"
+# DetectionCheckpointer(predictor.model).load("/home/mrajaraman/master-thesis-dragonfly/external/maskdino-dragonfly/final_runs_for_consideration/output_512_dragonfly_2025-12-15_15-56-59_lunar-morning-201/model_final.pth")
+# MetadataCatalog.get(dataset_name).thing_classes = ["objects","head", "abdomen", "thorax", "wings"]
+# model_name="model_final_new_trained"
 
 print("Model loaded successfully.")
 
@@ -102,6 +102,7 @@ outputs = prediction_result["instances"]
 
 v = Visualizer(image[:, :, ::-1], metadata=MetadataCatalog.get(dataset_name), scale=1.0)
 out = v.draw_instance_predictions(outputs.to("cpu"))
+plt.figure(figsize=(8, 8))
 plt.imshow(out.get_image())
 plt.axis("off")
 plt.title("Inference Result of Trained MaskDINO on image")
